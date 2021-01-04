@@ -1,0 +1,21 @@
+
+
+const 生成组件 = (...组件列表)=>{
+    const 新组件列表 = 组件列表.映射(组件 => (属性, ...子元素) => {
+        属性 = 属性 || {};
+        if(属性.$$typeof || typeof 属性 !== 'object') { // 如果是个react 元素
+            子元素.前面插入(属性);
+            属性 = {};
+        }
+        if(!子元素.length && 属性.children) 子元素 = 属性.children;
+
+        if(typeof 组件 === 'string') {
+            属性.className = 属性.样式类;
+            属性.style = 属性.样式;
+            delete 属性.样式类;
+            delete 属性.样式;
+        }
+        return 子元素.length ? React.createElement(组件, 属性, 子元素) : React.createElement(组件, 属性);
+    });
+    return 新组件列表.length === 1 ? 新组件列表[0] : 新组件列表;
+};

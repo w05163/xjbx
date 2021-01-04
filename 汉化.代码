@@ -1,0 +1,16 @@
+// 数组
+window.串 = Array;
+Array.prototype.映射 = Array.prototype.map;
+Array.prototype.筛选 = Array.prototype.filter;
+Array.prototype.遍历 = Array.prototype.forEach;
+Array.prototype.加入 = Array.prototype.push;
+Array.prototype.遍历构成 = Array.prototype.reduce;
+Array.prototype.找到 = Array.prototype.find;
+Array.prototype.前面插入 = Array.prototype.unshift;
+Array.prototype.合并成字符串 = Array.prototype.join;
+Array.prototype.拼接 = Array.prototype.concat;
+
+
+window.延时执行 = window.setTimeout;
+window.取消延时执行 = window.clearTimeout;
+

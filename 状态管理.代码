@@ -1,0 +1,307 @@
+
+/** 状态管理核心部分 */
+
+const 状态存储 = new WeakMap();
+/**
+ * @template T, P
+ */
+class 状态管理器 {
+    /**
+     * @param {T} 初始状态
+     * @param {P} 状态变更器
+     */
+    constructor(初始状态, 状态变更器){
+        状态存储.set(this, 初始状态);
+        /**@type {[(新状态: T)=>*]} */
+        this.监听器 = [];
+        /**@type {Object.<string, 状态管理器>} */
+        this._store = null;
+        this.状态变更器 = 状态变更器;
+    }
+
+    /**
+     * @param {keyof P} 变更器名称 
+     * @param {P[keyof P]} 参数 
+     */
+    提交(变更器名称, 参数){
+        const 纯函数 = this.状态变更器[变更器名称];
+        const 旧状态 = /**@type {T}*/(状态存储.get(this));
+        const 新状态 = 纯函数.call(null, 旧状态, 参数);
+        if(新状态 === 旧状态 ) return;
+        状态存储.set(this, 新状态);
+        this.触发变更();
+    }
+
+    /**
+     * @returns {T}
+     */
+    获取状态(){
+        return { ...状态存储.get(this) };
+    }
+
+    /**
+     * 通知所有人状态变更啦
+     */
+    触发变更(){
+        const 新状态 = this.获取状态();
+        this.监听器.遍历(函数 => {
+            try {
+                函数(新状态);
+            } catch (error) {
+                console.error(error);
+            }
+        });
+    }
+
+    /**
+     * @param {(新状态: T)=>*} 监听函数 
+     */
+    监听变更(监听函数){
+        this.监听器.加入(监听函数);
+        return () => this.监听器 = this.监听器.筛选(元素 => 元素 !== 监听函数);
+    }
+
+    /**
+     * @param {Object.<string, 状态管理器>} store 
+     */
+    绑定Store(store){
+        this._store = store;
+    }
+}
+
+/**
+ * @template T
+ * @param {T} store 
+ * @returns {T}
+ */
+function 构建Store(store){
+    return new 总集(store);
+}
+
+class 总集 {
+    /**
+     * 
+     * @param {Object.<string,状态管理器>} store 
+     */
+    constructor(store) {
+        this.store = store;
+        /** @type {Function} */
+        this.监听器 = [];
+        this.初始化();
+    }
+
+    初始化(){
+        Object.keys(this.store).遍历(key => {
+            const 控制器 = this.store[key];
+            控制器.绑定Store(this);
+            控制器.监听变更(() => this.触发变更());
+        });
+    }
+
+    触发变更(){
+        this.监听器.遍历(函数 => {
+            try {
+                函数();
+            } catch (error) {
+                console.error(error);
+            }
+        });
+    }
+
+    /**
+     * @param {Function} 监听函数 
+     */
+    监听变更(监听函数){
+        this.监听器.加入(监听函数);
+        return () => this.监听器 = this.监听器.筛选(元素 => 元素 !== 监听函数);
+    }
+}
+
+const StoreContext = React.createContext(null);
+
+/**
+ * @param {总集} store 
+ */
+const 创建Provider = (store) => {
+    const 状态注入组件 = 生成组件(StoreContext.Provider);
+    return (属性集) => 状态注入组件({ ...属性集, value: store });
+}
+
+/**
+ * （这里还是类型丢失了）
+ * @param {React.Component} 某组件 
+ * @param {(状态树)=>*} 映射函数 状态映射到属性集 
+ * @returns {React.Component}
+ */
+function 链接组件(某组件, 映射函数) {
+    const 组件 = 生成组件(某组件);
+    return (属性集) => {
+        const 总集 = React.useContext(StoreContext);
+        const [ 数据, 更新数据 ] = React.useState(映射函数(总集.store));
+        总集.监听变更(() => {
+            更新数据(映射函数(总集.store));
+        })
+        return 组件({ ...属性集, ...数据 });
+    }
+}
+/** 状态管理核心部分 */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/** 业务部分 */
+
+const 假装跟服务器通信 = () => new Promise(res => 延时执行(res, 300));
+
+const 待办事项状态变更器 = {
+    /**
+     * @param {待办事项状态} 旧状态 
+     * @param {事项列表} 事项列表 
+     */
+    设置事项列表(旧状态, 事项列表) {
+        return { ...旧状态, 事项列表 };
+    },
+    /**
+     * @param {待办事项状态} 旧状态 
+     * @param {{标识:number, 新完成状态: boolean}} param1 
+     */
+    变更状态(旧状态, { 标识, 新完成状态 }) {
+        return {
+            ...旧状态,
+            事项列表: 旧状态.事项列表.映射(事项 => 事项.标识 === 标识 ? {
+                ...事项,
+                完成状态: 新完成状态
+            } : 事项)
+        }
+    },
+
+    /**
+     * @param {待办事项状态} 旧状态 
+     * @param {number} 标识 
+     */
+    标记为选中(旧状态, 标识){
+        return {
+            ...旧状态,
+            事项列表: 旧状态.事项列表.映射(事项 => 事项.标识 === 标识 ? {
+                ...事项,
+                选中: !事项.选中
+            } : 事项)
+        }
+    },
+
+    删除选中事项(旧状态){
+        return {
+            ...旧状态,
+            事项列表: 旧状态.事项列表.筛选(事项 => !事项.选中)
+        }
+    },
+
+    新增(旧状态, {标题,描述}){
+        return {
+            ...旧状态,
+            事项列表: [{
+                标题,
+                描述,
+                完成状态: false,
+                标识: Math.random()
+            }].拼接(旧状态.事项列表)
+        }
+    }
+}
+
+/**
+ * @typedef {[{标题: string,描述: string,完成状态: 1|2|3}]} 事项列表
+ * @typedef 待办事项状态
+ * @prop {事项列表} 事项列表
+ * @extends 状态管理器<待办事项状态,待办事项状态变更器>
+ */
+class 待办事项状态管理 extends 状态管理器 {
+    constructor(){
+        super({
+            事项列表: []
+        }, 待办事项状态变更器);
+    }
+
+    static 默认事项 = [
+        {
+            标题: '做一个todo list',
+            描述: '所有新框架新技术，都逃不过的todo list',
+            完成状态: false,
+            标识: 1
+        },
+        {
+            标题: '使用React',
+            描述: '在本项目使用react作为主要界面实现库',
+            完成状态: false,
+            标识: 2
+        },
+        {
+            标题: '状态管理',
+            描述: '设计一个状态管理方案，用在本项目中',
+            完成状态: false,
+            标识: 3
+        },
+        {
+            标题: '不打包，不编译',
+            描述: '不用webpack等打包工具，使用最传统的瞎jb写的方式来完成本项目的代码编写',
+            完成状态: false,
+            标识: 4
+        },
+        {
+            标题: '不兼容',
+            描述: '爱用啥语法就用啥语法，爱用啥api就用啥api，瞎写',
+            完成状态: false,
+            标识: 5
+        },
+        {
+            标题: '类型不丢失',
+            描述: '在本项目主要js代码中，做到类型不丢失(尽量吧)',
+            完成状态: false,
+            标识: 6
+        },
+        {
+            标题: '使用中文',
+            描述: '在编写本项目代码时，尽量使用中文，当然这毫无意义',
+            完成状态: false,
+            标识: 7
+        }
+    ]
+
+    async 网络数据初始化(){
+        // 假装请求一下数据
+        await 假装跟服务器通信();
+        this.提交('设置事项列表', 待办事项状态管理.默认事项);
+    }
+
+    async 状态变更(标识) {
+        const 事项 = this.获取状态().事项列表.找到(项 => 项.标识 === 标识);
+        const 新完成状态 = !事项.完成状态;
+        this.提交('变更状态', { 标识, 新完成状态 });
+        await 假装跟服务器通信({
+            标识,
+            完成状态: 新完成状态
+        });
+    }
+
+    async 新增事件({标题, 描述}) {
+        if(!标题 || !描述) return;
+        this.提交('新增',{标题, 描述});
+        await 假装跟服务器通信({标题, 描述});
+    }
+}
+
+

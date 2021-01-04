@@ -1,0 +1,20 @@
+
+function 创建元素(元素名){
+    return document.createElement(元素名);
+}
+
+/**
+ * 
+ * @param {Element} 目标 
+ */
+function 元素(目标){
+    return {
+        添加(元素x){
+            return 目标.appendChild(元素x);
+        },
+        找到(匹配条件){
+            return 目标.querySelector(匹配条件);
+        }
+    };
+}
+
